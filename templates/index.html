@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Phishing Website Detector</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f7fb;
+            margin: 0;
+            min-height: 100vh;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            width: 550px;
+            max-width: 90%;
+
+            background: white;
+
+            padding: 40px;
+
+            border-radius: 18px;
+
+            box-shadow:
+                0 10px 35px rgba(0, 0, 0, 0.12);
+
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0 0 10px;
+
+            color: #111827;
+
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #6b7280;
+
+            margin-bottom: 30px;
+
+            font-size: 16px;
+        }
+
+        .input-container {
+            display: flex;
+
+            gap: 10px;
+
+            margin-bottom: 20px;
+        }
+
+        input {
+            flex: 1;
+
+            padding: 15px;
+
+            border: 2px solid #e5e7eb;
+
+            border-radius: 10px;
+
+            font-size: 16px;
+
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #2563eb;
+        }
+
+        button {
+            padding: 15px 22px;
+
+            border: none;
+
+            border-radius: 10px;
+
+            background: #2563eb;
+
+            color: white;
+
+            font-size: 16px;
+
+            font-weight: bold;
+
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        button:disabled {
+            background: #9ca3af;
+
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+
+            margin-top: 20px;
+
+            color: #2563eb;
+
+            font-weight: bold;
+        }
+
+        .result {
+            display: none;
+
+            margin-top: 25px;
+
+            padding: 25px;
+
+            border-radius: 12px;
+        }
+
+        .legitimate {
+            background: #ecfdf5;
+
+            border: 2px solid #10b981;
+        }
+
+        .phishing {
+            background: #fef2f2;
+
+            border: 2px solid #ef4444;
+        }
+
+        .result-title {
+            font-size: 25px;
+
+            font-weight: bold;
+
+            margin-bottom: 15px;
+        }
+
+        .confidence {
+            font-size: 18px;
+
+            margin-bottom: 15px;
+        }
+
+        .probabilities {
+            font-size: 15px;
+
+            color: #374151;
+
+            line-height: 1.8;
+        }
+
+        .error {
+            display: none;
+
+            margin-top: 20px;
+
+            padding: 15px;
+
+            background: #fef2f2;
+
+            border: 1px solid #ef4444;
+
+            border-radius: 8px;
+
+            color: #b91c1c;
+        }
+
+        .url-display {
+            margin-top: 15px;
+
+            font-size: 14px;
+
+            color: #6b7280;
+
+            word-break: break-all;
+        }
+
+        @media (max-width: 600px) {
+
+            .container {
+                padding: 25px;
+            }
+
+            .input-container {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<div class="container">
+
+    <h1>🔐 Phishing Website Detector</h1>
+
+    <p class="subtitle">
+        Enter a website URL to check whether it is legitimate or potentially phishing.
+    </p>
+
+
+    <div class="input-container">
+
+        <input
+            type="text"
+            id="urlInput"
+            placeholder="https://example.com"
+        >
+
+        <button id="analyzeBtn" onclick="analyzeURL()">
+            🔍 Analyze
+        </button>
+
+    </div>
+
+
+    <div id="loading" class="loading">
+        Analyzing website... Please wait.
+    </div>
+
+
+    <div id="error" class="error"></div>
+
+
+    <div id="result" class="result">
+
+        <div id="resultTitle" class="result-title"></div>
+
+        <div id="confidence" class="confidence"></div>
+
+        <div class="probabilities">
+
+            <div>
+                ✅ Legitimate:
+                <span id="legitimateProbability"></span>%
+            </div>
+
+            <div>
+                ⚠️ Phishing:
+                <span id="phishingProbability"></span>%
+            </div>
+
+        </div>
+
+        <div id="urlDisplay" class="url-display"></div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+async function analyzeURL() {
+
+    const urlInput = document.getElementById("urlInput");
+
+    const analyzeBtn = document.getElementById("analyzeBtn");
+
+    const loading = document.getElementById("loading");
+
+    const result = document.getElementById("result");
+
+    const error = document.getElementById("error");
+
+
+    const url = urlInput.value.trim();
+
+
+    // Check empty URL
+
+    if (!url) {
+
+        error.textContent = "Please enter a website URL.";
+
+        error.style.display = "block";
+
+        result.style.display = "none";
+
+        return;
+
+    }
+
+
+    // Reset previous result
+
+    error.style.display = "none";
+
+    result.style.display = "none";
+
+    loading.style.display = "block";
+
+    analyzeBtn.disabled = true;
+
+
+    try {
+
+        const response = await fetch("/predict", {
+
+            method: "POST",
+
+            headers: {
+
+                "Content-Type": "application/json"
+
+            },
+
+            body: JSON.stringify({
+
+                url: url
+
+            })
+
+        });
+
+
+        const data = await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error || "Something went wrong."
+            );
+
+        }
+
+
+        // Display result
+
+        const resultTitle =
+            document.getElementById("resultTitle");
+
+
+        const confidence =
+            document.getElementById("confidence");
+
+
+        const legitimateProbability =
+            document.getElementById(
+                "legitimateProbability"
+            );
+
+
+        const phishingProbability =
+            document.getElementById(
+                "phishingProbability"
+            );
+
+
+        const urlDisplay =
+            document.getElementById("urlDisplay");
+
+
+        // Remove previous classes
+
+        result.classList.remove(
+            "legitimate",
+            "phishing"
+        );
+
+
+        if (data.prediction === "Phishing") {
+
+            result.classList.add("phishing");
+
+            resultTitle.textContent =
+                "⚠️ Phishing Website";
+
+        }
+
+        else {
+
+            result.classList.add("legitimate");
+
+            resultTitle.textContent =
+                "✅ Legitimate Website";
+
+        }
+
+
+        confidence.textContent =
+            "Confidence: " +
+            data.confidence +
+            "%";
+
+
+        legitimateProbability.textContent =
+            data.legitimate_probability;
+
+
+        phishingProbability.textContent =
+            data.phishing_probability;
+
+
+        urlDisplay.textContent =
+            "Analyzed URL: " + data.url;
+
+
+        result.style.display = "block";
+
+    }
+
+
+    catch (err) {
+
+        error.textContent =
+            "Error: " + err.message;
+
+        error.style.display = "block";
+
+    }
+
+
+    finally {
+
+        loading.style.display = "none";
+
+        analyzeBtn.disabled = false;
+
+    }
+
+}
+
+
+// Allow Enter key
+
+document
+    .getElementById("urlInput")
+    .addEventListener("keydown", function(event) {
+
+        if (event.key === "Enter") {
+
+            analyzeURL();
+
+        }
+
+    });
+
+</script>
+
+
+</body>
+
+</html>
